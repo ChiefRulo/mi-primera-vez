@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Table {
+  id        String    @id @default(uuid())
+  name      String
+  qrHash    String    @unique @map("qr_hash")
+  sessions  Session[]
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  tableId   String    @map("table_id")
+  status    String    @default("ACTIVE") // ACTIVE, CLOSED
+  createdAt DateTime  @default(now()) @map("created_at")
+  
+  table     Table     @relation(fields: [tableId], references: [id])
+  users     User[]
+  orders    OrderLine[]
+
+  @@index([tableId])
+}
+
+model User {
+  id        String    @id @default(uuid())
+  sessionId String    @map("session_id")
+  name      String
+  phone     String
+  email     String?
+  role      String    @default("CUSTOMER") // CUSTOMER, WAITER, ADMIN
+  
+  session   Session   @relation(fields: [sessionId], references: [id])
+  orders    OrderLine[]
+  payments  Payment[]
+
+  @@unique([sessionId, phone]) // Unique phone per session
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  price       Float
+  description String?
+  imageUrl    String?  @map("image_url")
+  active      Boolean  @default(true)
+  
+  orderLines  OrderLine[]
+}
+
+model OrderLine {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  sessionId String   @map("session_id")
+  productId String   @map("product_id")
+  quantity  Int      @default(1)
+  status    String   @default("SENT") // SENT, PREPARING, READY, DELIVERED, CANCELLED
+  modifiers String?  // JSON string
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+  session   Session  @relation(fields: [sessionId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  amount      Float
+  tipAmount   Float    @map("tip_amount")
+  method      String   // TERMINAL, CASH, TRANSFER
+  status      String   @default("PENDING") // PENDING, PAID
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id])
+}
